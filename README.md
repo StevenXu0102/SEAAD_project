@@ -125,3 +125,33 @@ This means:
 ### Highly variable genes
 
 The dataset provides the full feature space of **36,601 genes**. Highly variable genes were **not assumed** to be pre-selected. For models that require HVG selection, we selected the top **2,000 HVGs**.
+
+## 5) Model Training
+
+### A. Baseline MLP
+
+As a simple baseline, I trained a multilayer perceptron (MLP) on per-cell gene expression features.
+
+#### Architecture
+
+The MLP consists of:
+
+- **2–4 fully connected layers**
+- **ReLU** activations after each hidden layer
+- optional **dropout**
+- optional **BatchNorm**
+- a final output layer for binary classification
+
+The output layer can be implemented in either of the following ways:
+
+- **single-logit output** with **sigmoid** activation during evaluation, trained with `BCEWithLogitsLoss`
+- **two-class output** with **softmax**, trained with `CrossEntropyLoss`
+
+In my implementation, the MLP takes each cell’s gene expression vector as input and predicts whether the cell comes from a **High** donor (`label = 1`) or a **Not AD** donor (`label = 0`).
+
+#### Input features
+
+The model uses a fixed-length gene expression vector for each cell. Depending on the experiment, this input may be:
+
+- the full processed feature vector, or
+- a selected subset such as highly variable genes (HVGs)
