@@ -155,3 +155,29 @@ The model uses a fixed-length gene expression vector for each cell. Depending on
 
 - the full processed feature vector, or
 - a selected subset such as highly variable genes (HVGs)
+
+
+### B. Transformer-based Model
+
+I also implemented a transformer-based classifier to model cell-level gene expression using sequence-style representations. **All code for this model is contained in `train_transformer.py`**, including data loading, donor-level splitting, preprocessing, model definition, training, evaluation, checkpoint saving, and logging.
+
+
+#### Input representation
+
+For this model, each cell’s gene expression vector is split into chunks and represented as a sequence of embeddings.
+
+
+#### Cell-level classification representation
+
+The transformer supports **two ways** to construct the final cell-level representation for classification:
+
+1. **CLS token (`pooling="cls"`)**  
+   A learned classification token is prepended to the input sequence. After passing through the transformer encoder, the final hidden state of this token is used as the cell-level representation for binary classification. 
+
+2. **Mean pooling (`pooling="mean"`)**  
+   Instead of using a dedicated classification token, the model averages the contextualized hidden states of all sequence tokens after the transformer encoder. The resulting pooled embedding is then passed to the classification head.
+
+In our implementation, both options are supported through the `--pooling` argument in **`train_transformer.py`**, with choices:
+
+- `cls`
+- `mean`
