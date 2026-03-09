@@ -1,4 +1,4 @@
-# SEAAD Oligodendrocyte Classification:
+# SEAAD Oligodendrocyte Classification
 
 ## 1) Donor Group Definition
 
@@ -13,8 +13,6 @@ Donors/cells with other `ADNC` values were excluded from this binary comparison.
 ## 2) Cell Filtering to Oligodendrocytes
 
 I filtered to Oligodendrocyte cells using `Subclass == "Oligodendrocyte"`, and then assigned donor labels within this filtered subset.
-
-## Summary After Filtering
 
 ### Donors per group after filtering
 - **High:** 39
