@@ -231,9 +231,11 @@ The task is clearly affected by **class imbalance**. In our dataset, the majorit
 
 Another important observation is that the models **overfit very quickly**. During training, the training accuracy rises rapidly and becomes close to **100%** after relatively few epochs, while the test performance improves much more slowly and remains substantially lower. This indicates that the models are learning the training donors extremely well but do not generalize equally well to unseen donors.
 
-To address class imbalance, i also implemented **weighted loss functions** for both:
+To address class imbalance, I also experimented with **class-weighted loss functions** in both training setups:
 
-- **BCEWithLogitsLoss**
-- **CrossEntropyLoss**
+- **`BCEWithLogitsLoss`** with a positive-class weight (`pos_weight`) to upweight the minority class during binary classification
+- **`CrossEntropyLoss`** with class weights to penalize mistakes on the minority class more heavily
+
+The goal was to reduce the model’s bias toward the majority class and improve recall for the underrepresented label. In practice, these weighted losses changed the optimization behavior slightly, but the overall improvement on the test set was limited. This suggests that the main challenge is not just the imbalance in label counts. More likely, performance is also constrained by factors such as **donor-level heterogeneity**, **strong donor-specific patterns**, **limited number of donors**, and **rapid overfitting**. In other words, reweighting the loss alone was not enough to solve the generalization difficulty on unseen donors.
 
 but the improvement was limited. This suggests that the main difficulty is not only label imbalance, but also a combination of factors such as donor-level heterogeneity and strong donor-specific signals.
