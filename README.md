@@ -130,7 +130,7 @@ The dataset provides the full feature space of **36,601 genes**. Highly variable
 
 ### A. Baseline MLP
 
-As a simple baseline, I trained a multilayer perceptron (MLP) on per-cell gene expression features. All codes for this baseline is in **`train_mlp.py`**.
+As a simple baseline, I trained a multilayer perceptron (MLP) on per-cell gene expression features. All codes for this baseline are in **`train_mlp.py`**.
 
 #### Architecture
 
@@ -159,7 +159,7 @@ The model uses a fixed-length gene expression vector for each cell. Depending on
 
 ### B. Transformer-based Model
 
-I also implemented a transformer-based classifier to model cell-level gene expression using sequence-style representations. All codes for this model is in **`train_transformer.py`**.
+I also implemented a transformer-based classifier to model cell-level gene expression using sequence-style representations. All codes for this model are in **`train_transformer.py`**.
 
 
 #### Input representation
@@ -181,3 +181,34 @@ In our implementation, both options are supported through the `--pooling` argume
 
 - `cls`
 - `mean`
+
+###  C. Fine-Tuned Foundation Model
+
+I also finetuned scGPT for this task.  All codes for finetuning scGPT are are in **`train_scGPT.py`**.
+
+#### Gene Vocabulary Alignment
+
+For the scGPT model, gene vocabulary alignment is performed before tokenization and training.
+
+##### Steps
+
+1. **Set the dataset gene identifiers**
+   - The dataset gene IDs are taken from `adata_sub.var["gene_ids"]`.
+   - These gene IDs are then used as the working gene names by setting:
+     - `adata_sub.var = adata_sub.var.set_index("gene_ids")`
+     - `adata_sub.var["gene_name"] = adata_sub.var.index.astype(str)`
+
+2. **Load the pretrained scGPT vocabulary**
+   - The vocabulary is loaded from `vocab.json` using `GeneVocab.from_file(...)`.
+
+3. **Add required special tokens**
+   - The following special tokens are ensured to exist in the vocabulary:
+     - `<pad>`
+     - `<cls>`
+     - `<eoc>`
+
+4. **Check which dataset genes are covered by the scGPT vocabulary**
+   - For each gene in `adata_sub.var["gene_name"]`, we check whether it exists in the pretrained vocabulary.
+
+5. **Filter to matched genes only**
+   - Only genes present in the scGPT vocabulary are kept.
