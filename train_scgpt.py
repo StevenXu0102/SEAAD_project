@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 import os
+import sys
 import json
 import time
 import copy
 import random
 import argparse
+import atexit
+import re
 from pathlib import Path
-from typing import Dict, Tuple
+from typing import Dict
 
 import numpy as np
 import scanpy as sc
@@ -30,6 +33,43 @@ def set_seed(seed: int):
     np.random.seed(seed)
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
+
+
+class Tee:
+    """
+    Write everything to both terminal and file.
+    Useful for saving all print() outputs.
+    """
+    def __init__(self, *streams):
+        self.streams = streams
+
+    def write(self, data):
+        for s in self.streams:
+            s.write(data)
+            s.flush()
+
+    def flush(self):
+        for s in self.streams:
+            s.flush()
+
+
+def setup_stdout_stderr_logging(run_dir: Path):
+    """
+    Redirect both stdout and stderr to terminal + log file.
+    Use rank-specific log files to avoid collisions under multi-process launch.
+    """
+    rank = os.environ.get("RANK", "0")
+    log_path = run_dir / f"stdout_rank{rank}.log"
+    log_f = open(log_path, "a", buffering=1)  # line-buffered
+
+    orig_stdout = sys.stdout
+    orig_stderr = sys.stderr
+
+    sys.stdout = Tee(orig_stdout, log_f)
+    sys.stderr = Tee(orig_stderr, log_f)
+
+    atexit.register(log_f.close)
+    return log_path
 
 
 class SeqDataset(Dataset):
@@ -213,13 +253,10 @@ def evaluate(
     )
     return avg_loss, acc, f1
 
-import re
-from pathlib import Path
-import time
 
 def _fmt_float(x: float, nd=6) -> str:
-
     return format(float(x), f".{nd}g")
+
 
 def build_run_name(dataset_name: str, args) -> str:
     parts = [
@@ -238,9 +275,9 @@ def build_run_name(dataset_name: str, args) -> str:
         ("amp0" if args.no_amp else "amp1"),
     ]
     name = "_".join(parts)
-    # allow letters/numbers/underscore/dash/dot only
     name = re.sub(r"[^A-Za-z0-9_\-\.]+", "", name)
     return name[:180]
+
 
 def main():
     parser = argparse.ArgumentParser("scGPT binary finetune (High vs Not AD, Oligodendrocyte-only)")
@@ -263,16 +300,21 @@ def main():
     args = parser.parse_args()
 
     set_seed(args.seed)
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print("device:", device)
 
-    # save dir + logger
     dataset_name = "SEAAD_Oligodendrocyte_ADNC_binary"
     run_name = build_run_name(dataset_name, args)
     run_dir = Path(args.save_root) / f"dev_{run_name}-{time.strftime('%b%d-%H-%M')}"
     run_dir.mkdir(parents=True, exist_ok=True)
-    print("save_dir:", run_dir)
 
+    # Redirect all print output to terminal + log file
+    log_path = setup_stdout_stderr_logging(run_dir)
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print("device:", device)
+    print("save_dir:", run_dir)
+    print("stdout/stderr log:", log_path)
+
+    # scGPT logger file handler
     logger = scg.logger
     scg.utils.add_file_handler(logger, run_dir / "run.log")
 
@@ -280,6 +322,7 @@ def main():
     print("Reading h5ad files...")
     adata = sc.read(args.data_path)
     print("Finishing reading data. Now preprocessing the data!")
+
     obs = adata.obs.copy()
     required_cols = ["Subclass", "Donor ID", "ADNC"]
     missing = [c for c in required_cols if c not in obs.columns]
@@ -462,7 +505,6 @@ def main():
         n_input_bins=args.n_bins,
         ecs_threshold=0.0,
         explicit_zero_prob=False,
-        # Flash attention
         use_fast_transformer=False,
         pre_norm=False,
     )
@@ -478,7 +520,7 @@ def main():
 
     model.to(device)
 
-    # loss (imbalance fix)
+    # loss
     n_pos = int((train_labels == 1).sum())
     n_neg = int((train_labels == 0).sum())
     pos_weight = torch.tensor([n_neg / max(n_pos, 1)], device=device)
@@ -534,4 +576,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
