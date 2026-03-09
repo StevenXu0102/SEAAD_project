@@ -130,7 +130,7 @@ The dataset provides the full feature space of **36,601 genes**. Highly variable
 
 ### A. Baseline MLP
 
-As a simple baseline, I trained a multilayer perceptron (MLP) on per-cell gene expression features.
+As a simple baseline, I trained a multilayer perceptron (MLP) on per-cell gene expression features. The full implementation for this baseline, including data loading, preprocessing, training, and evaluation, is provided in **`train_mlp.py`**.
 
 #### Architecture
 
@@ -151,7 +151,7 @@ In my implementation, the MLP takes each cell’s gene expression vector as inpu
 
 #### Input features
 
-The model uses a fixed-length gene expression vector for each cell. Depending on the experiment, this input may be:
+The model uses a fixed-length gene expression vector for each cell. Depending on experiments, this input may be:
 
 - the full processed feature vector, or
 - a selected subset such as highly variable genes (HVGs)
