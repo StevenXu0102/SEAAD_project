@@ -1,18 +1,11 @@
-./__pycache__
-./data
-./good
-./mlp_runs
-./runs
-./save
-./transformer_runs
-./triton
-./vllm
-./scgpt 
+# ignore everything
+*
 
-environment.yml
-finetune_PBMC.ipynb
-finetune_SEAAD_1.ipynb
-finetune_SEAAD.ipynb
-
-requirements.txt
-SEAAD_A9_RNAseq_DREAM.2025-07-15.h5ad
+# but keep these files
+!.gitignore
+!mymodels.py
+!RNA_datasets.py
+!train_mlp.py
+!train_scgpt.py
+!train_transformer.py
+!utils.py
