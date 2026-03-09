@@ -110,7 +110,7 @@ Label = 1: Cells from High donors; Label = 0: Cells from Not AD donors
 
 ## 4) Preprocessing Check
 
-We first verified the preprocessing status of the `.h5ad` file before applying any additional transformations.
+We verified the preprocessing status of the `.h5ad` file before applying any additional transformations.
 
 - All datasets contain the same **36,601 features**
 - `adata.X` stores **log-normalized counts per 10,000 counts per cell**
