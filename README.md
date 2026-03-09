@@ -212,3 +212,28 @@ For the scGPT model, gene vocabulary alignment is performed before tokenization 
 
 5. **Filter to matched genes only**
    - Only genes present in the scGPT vocabulary are kept.
+
+
+## 6) Evaluation (Test Set)
+
+We evaluated each model on the held-out **donor-level test set** and report **Accuracy** and **F1 score**.
+
+### Test Results
+
+| Model | Best Accuracy | Best F1 |
+|---|---:|---:|
+| MLP | 0.7245 | 0.8262 |
+| Transformer | 0.7952 | 0.8585 |
+
+### Discussion
+
+The task is clearly affected by **class imbalance**. In our dataset, the majority class is **label 1 (High)**, which makes the classification problem biased toward the positive class. Because of this imbalance, accuracy alone is not sufficient, so we also report **F1 score**, which better reflects the balance between precision and recall.
+
+Another important observation is that the models **overfit very quickly**. During training, the training accuracy rises rapidly and becomes close to **100%** after relatively few epochs, while the test performance improves much more slowly and remains substantially lower. This indicates that the models are learning the training donors extremely well but do not generalize equally well to unseen donors.
+
+To address class imbalance, i also implemented **weighted loss functions** for both:
+
+- **BCEWithLogitsLoss**
+- **CrossEntropyLoss**
+
+but the improvement was limited. This suggests that the main difficulty is not only label imbalance, but also a combination of factors such as donor-level heterogeneity and strong donor-specific signals.
