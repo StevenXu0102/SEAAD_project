@@ -107,3 +107,21 @@ Label = 1: Cells from High donors; Label = 0: Cells from Not AD donors
 |---|---:|
 | H21.33.011 | 4706 |
 | H20.33.044 | 1789 |
+
+## 4) Preprocessing Check
+
+We first verified the preprocessing status of the `.h5ad` file before applying any additional transformations.
+
+- All datasets contain the same **36,601 features**
+- `adata.X` stores **log-normalized counts per 10,000 counts per cell**
+- `adata.layers["UMIs"]` stores **raw counts**
+
+This means:
+
+- **library-size normalization** is already present in `adata.X`
+- **log transform** is already present in `adata.X`
+- **raw counts** are available in `adata.layers["UMIs"]`
+
+### Highly variable genes
+
+The dataset provides the full feature space of **36,601 genes**. Highly variable genes were **not assumed** to be pre-selected. For models that require HVG selection, we selected the top **2,000 HVGs**.
