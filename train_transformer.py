@@ -1,12 +1,40 @@
+#!/usr/bin/env python3
 import json
 import math
 import time
 import argparse
+import logging
 from pathlib import Path
+
 import torch
 from accelerate import Accelerator
+
 from utils import *
 from mymodels import *
+
+
+def setup_logger(log_file: Path, is_main_process: bool):
+    logger = logging.getLogger("transformer_train_logger")
+    logger.setLevel(logging.INFO)
+    logger.propagate = False
+
+    if logger.handlers:
+        logger.handlers.clear()
+
+    if is_main_process:
+        fmt = logging.Formatter("%(asctime)s | %(message)s")
+
+        fh = logging.FileHandler(log_file)
+        fh.setLevel(logging.INFO)
+        fh.setFormatter(fmt)
+        logger.addHandler(fh)
+
+        sh = logging.StreamHandler()
+        sh.setLevel(logging.INFO)
+        sh.setFormatter(fmt)
+        logger.addHandler(sh)
+
+    return logger
 
 
 def build_run_name(args) -> str:
@@ -39,6 +67,7 @@ def build_run_name(args) -> str:
         f"_mp{args.mixed_precision}"
     )
     return name
+
 
 def main():
     ap = argparse.ArgumentParser("Transformer (Accelerate, bf16)")
@@ -78,7 +107,7 @@ def main():
     ap.add_argument("--use-weighted-loss", action="store_true")
     ap.add_argument("--top-genes", type=int, default=2000, help="Number of highly variable genes to select")
     ap.add_argument("--balanced_test", action="store_true")
-    
+
     args = ap.parse_args()
 
     run_name = build_run_name(args)
@@ -88,10 +117,18 @@ def main():
     set_seed(args.seed)
 
     accelerator = Accelerator(mixed_precision=args.mixed_precision)
+
+    logger = setup_logger(out_dir / "training.log", accelerator.is_main_process)
+    log = logger.info if accelerator.is_main_process else (lambda *a, **k: None)
+
+    log("Starting run")
+    log("Output directory: %s", out_dir)
+    log("Arguments:\n%s", json.dumps(vars(args), indent=2))
+
     if accelerator.is_main_process:
-        print("Accelerator device:", accelerator.device)
-        print("Num processes:", accelerator.num_processes)
-        print("Mixed precision:", accelerator.mixed_precision)
+        log("Accelerator device: %s", accelerator.device)
+        log("Num processes: %s", accelerator.num_processes)
+        log("Mixed precision: %s", accelerator.mixed_precision)
 
     # Enable SDPA backends (flash when possible)
     if torch.cuda.is_available():
@@ -103,7 +140,7 @@ def main():
             if hasattr(torch.backends.cuda, "enable_math_sdp"):
                 torch.backends.cuda.enable_math_sdp(True)
             if accelerator.is_main_process and hasattr(torch.backends.cuda, "flash_sdp_enabled"):
-                print("flash_sdp_enabled:", torch.backends.cuda.flash_sdp_enabled())
+                log("flash_sdp_enabled: %s", torch.backends.cuda.flash_sdp_enabled())
         except Exception:
             pass
 
@@ -119,13 +156,21 @@ def main():
         balanced_test=args.balanced_test,
     )
 
-    print("\n=== Donor report ===")
-    print(donor_report)
-    print("\n=== Cell report ===")
-    print(cell_report)
+    log("\n=== Donor report ===")
+    log("%s", donor_report)
+    log("\n=== Cell report ===")
+    log("%s", cell_report)
+    log("\n=== Cells per donor ===")
+    log("%s", donor_cell_counts.to_string(index=False))
 
     adata = adata[:, hvg_genes]
     train_ds, val_ds, test_ds, input_dim = generate_dataset(adata, obs_split)
+
+    log("Dataset summary:")
+    log("  input_dim=%d", input_dim)
+    log("  train_n=%d", len(train_ds))
+    log("  val_n=%s", len(val_ds) if val_ds is not None else "None")
+    log("  test_n=%d", len(test_ds))
 
     train_loader = generate_loader(train_ds, args.batch_size, True, args.num_workers, args.seed)
     val_loader = generate_loader(val_ds, args.batch_size, False, args.num_workers, args.seed) if val_ds is not None else None
@@ -159,16 +204,28 @@ def main():
         model, optimizer, train_loader, val_loader, test_loader = accelerator.prepare(
             model, optimizer, train_loader, val_loader, test_loader
         )
-    
-    if args.loss_type == 'ce' and loss_fn.weight is not None:
+
+    if args.loss_type == "ce" and loss_fn.weight is not None:
         loss_fn.weight = loss_fn.weight.to(accelerator.device)
-    if args.loss_type == 'bce' and loss_fn.pos_weight is not None:
+    if args.loss_type == "bce" and loss_fn.pos_weight is not None:
         loss_fn.pos_weight = loss_fn.pos_weight.to(accelerator.device)
 
     history = []
     best_metric = -float("inf")
     best_epoch = -1
     best_ckpt_path = out_dir / "best_model.pt"
+
+    def fmt(m):
+        if m is None:
+            return "None"
+        return (
+            f"loss={m['loss']:.4f}, "
+            f"acc={m['acc']:.4f}, "
+            f"f1={m['f1']:.4f}, "
+            f"roc_auc={m['roc_auc']:.4f}, "
+            f"pred_ones={m['preds_one']:.2f}, "
+            f"n={m['n']}"
+        )
 
     for epoch in range(1, args.epochs + 1):
         t0 = time.time()
@@ -192,25 +249,37 @@ def main():
             best_metric = current_metric
             best_epoch = epoch
             unwrapped = accelerator.unwrap_model(model)
-            accelerator.save({"model_state_dict": unwrapped.state_dict(), "args": vars(args)}, best_ckpt_path)
+            accelerator.save(
+                {
+                    "model_state_dict": unwrapped.state_dict(),
+                    "args": vars(args),
+                    "epoch": epoch,
+                    "best_metric": best_metric,
+                    "metric_name": args.metric_for_best,
+                },
+                best_ckpt_path,
+            )
+            log(
+                "New best model saved | epoch=%d | best_%s=%.4f | path=%s",
+                best_epoch,
+                args.metric_for_best,
+                best_metric,
+                best_ckpt_path,
+            )
 
-        if accelerator.is_main_process:
-            def fmt(m):
-                if m is None:
-                    return "None"
-                return f"loss={m['loss']:.4f}, acc={m['acc']:.4f}, f1={m['f1']:.4f}, roc_auc={m['roc_auc']:.4f}, pred_ones={m['preds_one']:.2f}, n={m['n']}"
-            print(f"\nEpoch {epoch}/{args.epochs}  time={record['time_sec']}s")
-            print("  train:", fmt(train_metrics))
-            if val_metrics is not None:
-                print("  val  :", fmt(val_metrics))
-            print("  test :", fmt(test_metrics))
-            print(f"  best_{args.metric_for_best}={best_metric:.4f} @ epoch {best_epoch}")
+        log("\nEpoch %d/%d  time=%.2fs", epoch, args.epochs, record["time_sec"])
+        log("  train: %s", fmt(train_metrics))
+        if val_metrics is not None:
+            log("  val  : %s", fmt(val_metrics))
+        log("  test : %s", fmt(test_metrics))
+        log("  best_%s=%.4f @ epoch %d", args.metric_for_best, best_metric, best_epoch)
 
         accelerator.wait_for_everyone()
 
     if accelerator.is_main_process:
         with open(out_dir / "history.json", "w") as f:
             json.dump(history, f, indent=2)
+
         with open(out_dir / "summary.json", "w") as f:
             json.dump(
                 {
@@ -221,10 +290,19 @@ def main():
                     "final_val": history[-1]["val"],
                     "final_test": history[-1]["test"],
                     "best_model_path": str(best_ckpt_path),
+                    "log_path": str(out_dir / "training.log"),
                 },
                 f,
                 indent=2,
             )
+
+        log("\n=== Final Test Report ===")
+        log("%s", json.dumps(history[-1]["test"], indent=2))
+        log("Saved best model: %s", best_ckpt_path)
+        log("Saved history: %s", out_dir / "history.json")
+        log("Saved summary: %s", out_dir / "summary.json")
+        log("Saved log: %s", out_dir / "training.log")
+
 
 if __name__ == "__main__":
     main()
