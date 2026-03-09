@@ -190,7 +190,7 @@ I also finetuned scGPT for this task.  All codes for finetuning scGPT are are in
 
 For the scGPT model, gene vocabulary alignment is performed before tokenization and training.
 
-##### Steps
+#### Steps
 
 1. **Set the dataset gene identifiers**
    - The dataset gene IDs are taken from `adata_sub.var["gene_ids"]`.
