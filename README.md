@@ -224,6 +224,7 @@ I evaluated each model on the held-out **donor-level test set** and report **Acc
 |---|---:|---:|
 | MLP | 0.7245 | 0.8262 |
 | Transformer | 0.7952 | 0.8585 |
+| scGPT | 0.718 | 0.813 |
 
 ### Discussion
 
