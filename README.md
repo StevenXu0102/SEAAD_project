@@ -110,7 +110,7 @@ Label = 1: Cells from High donors; Label = 0: Cells from Not AD donors
 
 ## 4) Preprocessing Check
 
-We verified the preprocessing status of the `.h5ad` file before applying any additional transformations.
+I verified the preprocessing status of the `.h5ad` file before applying any additional transformations.
 
 - All datasets contain the same **36,601 features**
 - `adata.X` stores **log-normalized counts per 10,000 counts per cell**
@@ -124,7 +124,7 @@ This means:
 
 ### Highly variable genes
 
-The dataset provides the full feature space of **36,601 genes**. Highly variable genes were **not assumed** to be pre-selected. For models that require HVG selection, we selected the top **2,000 HVGs**.
+The dataset provides the full feature space of **36,601 genes**. Highly variable genes were **not assumed** to be pre-selected. For models that require HVG selection, I selected the top **2,000 HVGs**.
 
 ## 5) Model Training
 
@@ -208,7 +208,7 @@ For the scGPT model, gene vocabulary alignment is performed before tokenization 
      - `<eoc>`
 
 4. **Check which dataset genes are covered by the scGPT vocabulary**
-   - For each gene in `adata_sub.var["gene_name"]`, we check whether it exists in the pretrained vocabulary.
+   - For each gene in `adata_sub.var["gene_name"]`, I check whether it exists in the pretrained vocabulary.
 
 5. **Filter to matched genes only**
    - Only genes present in the scGPT vocabulary are kept.
@@ -216,7 +216,7 @@ For the scGPT model, gene vocabulary alignment is performed before tokenization 
 
 ## 6) Evaluation (Test Set)
 
-We evaluated each model on the held-out **donor-level test set** and report **Accuracy** and **F1 score**.
+I evaluated each model on the held-out **donor-level test set** and report **Accuracy** and **F1 score**.
 
 ### Test Results
 
@@ -227,7 +227,7 @@ We evaluated each model on the held-out **donor-level test set** and report **Ac
 
 ### Discussion
 
-The task is clearly affected by **class imbalance**. In our dataset, the majority class is **label 1 (High)**, which makes the classification problem biased toward the positive class. Because of this imbalance, accuracy alone is not sufficient, so we also report **F1 score**, which better reflects the balance between precision and recall.
+The task is clearly affected by **class imbalance**. In our dataset, the majority class is **label 1 (High)**, which makes the classification problem biased toward the positive class. Because of this imbalance, accuracy alone is not sufficient, so I also report **F1 score**, which better reflects the balance between precision and recall.
 
 Another important observation is that the models **overfit very quickly**. During training, the training accuracy rises rapidly and becomes close to **100%** after relatively few epochs, while the test performance improves much more slowly and remains substantially lower. This indicates that the models are learning the training donors extremely well but do not generalize equally well to unseen donors.
 
@@ -236,6 +236,4 @@ To address class imbalance, I also experimented with **class-weighted loss funct
 - **`BCEWithLogitsLoss`** with a positive-class weight (`pos_weight`) to upweight the minority class during binary classification
 - **`CrossEntropyLoss`** with class weights to penalize mistakes on the minority class more heavily
 
-The goal was to reduce the model’s bias toward the majority class and improve recall for the underrepresented label. In practice, these weighted losses changed the optimization behavior slightly, but the overall improvement on the test set was limited. This suggests that the main challenge is not just the imbalance in label counts. More likely, performance is also constrained by factors such as **donor-level heterogeneity**, **strong donor-specific patterns**, **limited number of donors**, and **rapid overfitting**. In other words, reweighting the loss alone was not enough to solve the generalization difficulty on unseen donors.
-
-but the improvement was limited. This suggests that the main difficulty is not only label imbalance, but also a combination of factors such as donor-level heterogeneity and strong donor-specific signals.
+The goal was to reduce the model’s bias toward the majority class and improve recall for the underrepresented label but the improvement was limited. This suggests that the main difficulty is not only label imbalance, but also a combination of factors such as donor-level heterogeneity and strong donor-specific signals.
