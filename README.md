@@ -130,7 +130,7 @@ The dataset provides the full feature space of **36,601 genes**. Highly variable
 
 ### A. Baseline MLP
 
-As a simple baseline, I trained a multilayer perceptron (MLP) on per-cell gene expression features. The full implementation for this baseline, including data loading, preprocessing, training, and evaluation, is provided in **`train_mlp.py`**.
+As a simple baseline, I trained a multilayer perceptron (MLP) on per-cell gene expression features. All codes for this baseline is in **`train_mlp.py`**.
 
 #### Architecture
 
@@ -159,7 +159,7 @@ The model uses a fixed-length gene expression vector for each cell. Depending on
 
 ### B. Transformer-based Model
 
-I also implemented a transformer-based classifier to model cell-level gene expression using sequence-style representations. **All code for this model is contained in `train_transformer.py`**, including data loading, donor-level splitting, preprocessing, model definition, training, evaluation, checkpoint saving, and logging.
+I also implemented a transformer-based classifier to model cell-level gene expression using sequence-style representations. All codes for this model is in **`train_transformer.py`**.
 
 
 #### Input representation
